@@ -2,38 +2,75 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Чат</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.js"></script>
 </head>
 <body>
     <h2>Чат</h2>
     <p>Вы вошли как: <strong>{{ username }}</strong></p>
-    <button onclick="logout()">Выйти</button>
+    <a href="{{ url_for('logout') }}">Выйти</a>
 
-    <ul id="messages"></ul>
-    <input id="message" type="text" placeholder="Введите сообщение">
-    <button onclick="sendMessage()">Отправить</button>
+    <h3>Глобальный чат</h3>
+    <ul id="global_messages">
+        {% for msg in global_messages %}
+            <li>{{ msg }}</li>
+        {% endfor %}
+    </ul>
+
+    <input id="global_message" type="text" placeholder="Введите сообщение в общий чат">
+    <button onclick="sendGlobalMessage()">Отправить в глобальный чат</button>
+
+    <h3>Личный чат</h3>
+    <label for="recipient">Выберите собеседника:</label>
+    <select id="recipient">
+        {% for user in users %}
+            {% if user != username %}
+                <option value="{{ user }}">{{ user }}</option>
+            {% endif %}
+        {% endfor %}
+    </select>
+
+    <ul id="private_messages"></ul>
+
+    <input id="private_message" type="text" placeholder="Введите личное сообщение">
+    <button onclick="sendPrivateMessage()">Отправить личное сообщение</button>
 
     <script>
-        var socket = io();
+        var socket = io.connect("http://" + document.domain + ":" + location.port);
 
-        socket.on('message', function(msg) {
-            let li = document.createElement("li");
-            li.textContent = msg;
-            document.getElementById("messages").appendChild(li);
-        });
+        function sendGlobalMessage() {
+            let messageInput = document.getElementById("global_message");
+            let message = messageInput.value.trim();
 
-        function sendMessage() {
-            let message = document.getElementById("message").value;
-            if (message.trim() !== "") {
-                socket.send(message);
-                document.getElementById("message").value = "";
+            if (message) {
+                socket.emit("message", { type: "global", message: message });
+                messageInput.value = "";
             }
         }
 
-        function logout() {
-            window.location.href = "/logout";
+        function sendPrivateMessage() {
+            let recipient = document.getElementById("recipient").value;
+            let messageInput = document.getElementById("private_message");
+            let message = messageInput.value.trim();
+
+            if (message) {
+                socket.emit("message", { type: "private", recipient: recipient, message: message });
+                messageInput.value = "";
+            }
         }
+
+        socket.on("message", function(msg) {
+            let li = document.createElement("li");
+            li.textContent = msg;
+            document.getElementById("global_messages").appendChild(li);
+        });
+
+        socket.on("private_message", function(msg) {
+            let li = document.createElement("li");
+            li.textContent = msg;
+            document.getElementById("private_messages").appendChild(li);
+        });
     </script>
 </body>
 </html>
