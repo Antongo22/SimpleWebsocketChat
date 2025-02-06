@@ -13,7 +13,7 @@ users = {
     "user3": "password3"
 }
 
-# Хранение сообщений в памяти (глобальный и личные чаты)
+# Хранение сообщений в памяти
 global_messages = []  # Глобальный чат
 private_messages = {}  # Личные сообщения {("user1", "user2"): ["msg1", "msg2"]}
 
@@ -58,10 +58,11 @@ def logout():
 @app.route("/chat")
 @login_required
 def chat():
+    username = session["username"]
     return render_template(
         "chat.html",
-        username=session["username"],
-        users=users.keys(),
+        username=username,
+        users=[user for user in users.keys() if user != username],
         global_messages=global_messages
     )
 
@@ -78,7 +79,7 @@ def handle_connect():
 @login_required
 def handle_message(data):
     sender = session["username"]
-    msg_type = data["type"]  # "global" или "private"
+    msg_type = data["type"]
     message = data["message"]
 
     if msg_type == "global":
@@ -88,18 +89,31 @@ def handle_message(data):
 
     elif msg_type == "private":
         recipient = data["recipient"]
-        if recipient in user_sessions:
+        if recipient in users:
             full_msg = f"(ЛС от {sender}): {message}"
 
-            # Сохраняем личные сообщения
+            # Определяем ключ для хранения сообщений (сортируем пользователей, чтобы ключ был универсальным)
             chat_key = tuple(sorted([sender, recipient]))
             if chat_key not in private_messages:
                 private_messages[chat_key] = []
             private_messages[chat_key].append(full_msg)
 
-            # Отправляем только получателю
-            emit("private_message", full_msg, to=user_sessions[recipient])
-            emit("private_message", full_msg, to=request.sid)  # Чтобы отправитель видел тоже
+            # Отправляем только отправителю и получателю
+            if recipient in user_sessions:
+                emit("private_message", {"sender": sender, "message": full_msg}, to=user_sessions[recipient])
+            emit("private_message", {"sender": sender, "message": full_msg}, to=request.sid)
+
+# WebSocket: запрос истории личных сообщений
+@socketio.on("request_private_history")
+@login_required
+def send_private_history(data):
+    sender = session["username"]
+    recipient = data["recipient"]
+
+    chat_key = tuple(sorted([sender, recipient]))
+    history = private_messages.get(chat_key, [])
+
+    emit("private_history", {"recipient": recipient, "messages": history}, to=request.sid)
 
 # WebSocket: отключение
 @socketio.on("disconnect")
@@ -111,3 +125,4 @@ def handle_disconnect():
 
 if __name__ == "__main__":
     socketio.run(app, debug=True)
+ы

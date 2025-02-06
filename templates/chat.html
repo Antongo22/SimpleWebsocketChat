@@ -23,11 +23,9 @@
 
     <h3>Личный чат</h3>
     <label for="recipient">Выберите собеседника:</label>
-    <select id="recipient">
+    <select id="recipient" onchange="loadPrivateHistory()">
         {% for user in users %}
-            {% if user != username %}
-                <option value="{{ user }}">{{ user }}</option>
-            {% endif %}
+            <option value="{{ user }}">{{ user }}</option>
         {% endfor %}
     </select>
 
@@ -38,6 +36,7 @@
 
     <script>
         var socket = io.connect("http://" + document.domain + ":" + location.port);
+        var currentRecipient = document.getElementById("recipient").value;
 
         function sendGlobalMessage() {
             let messageInput = document.getElementById("global_message");
@@ -60,17 +59,39 @@
             }
         }
 
+        function loadPrivateHistory() {
+            currentRecipient = document.getElementById("recipient").value;
+            document.getElementById("private_messages").innerHTML = "";
+            socket.emit("request_private_history", { recipient: currentRecipient });
+        }
+
         socket.on("message", function(msg) {
             let li = document.createElement("li");
             li.textContent = msg;
             document.getElementById("global_messages").appendChild(li);
         });
 
-        socket.on("private_message", function(msg) {
-            let li = document.createElement("li");
-            li.textContent = msg;
-            document.getElementById("private_messages").appendChild(li);
+        socket.on("private_message", function(data) {
+            if (data.sender === currentRecipient || data.sender === "{{ username }}") {
+                let li = document.createElement("li");
+                li.textContent = data.message;
+                document.getElementById("private_messages").appendChild(li);
+            }
         });
+
+        socket.on("private_history", function(data) {
+            if (data.recipient === currentRecipient) {
+                let privateMessages = document.getElementById("private_messages");
+                privateMessages.innerHTML = "";
+                data.messages.forEach(msg => {
+                    let li = document.createElement("li");
+                    li.textContent = msg;
+                    privateMessages.appendChild(li);
+                });
+            }
+        });
+
+        window.onload = loadPrivateHistory;
     </script>
 </body>
 </html>
