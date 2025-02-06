@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask WebSockets</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.js"></script>
+</head>
+<body>
+    <h1>Чат на Flask-SocketIO</h1>
+    <input id="message" type="text" placeholder="Введите сообщение">
+    <button onclick="sendMessage()">Отправить</button>
+    <ul id="messages"></ul>
+
+    <script>
+        var socket = io();
+
+        socket.on('message', function(msg) {
+            let li = document.createElement("li");
+            li.textContent = msg;
+            document.getElementById("messages").appendChild(li);
+        });
+
+        function sendMessage() {
+            let message = document.getElementById("message").value;
+            socket.send(message);
+            document.getElementById("message").value = "";
+        }
+    </script>
+</body>
+</html>
